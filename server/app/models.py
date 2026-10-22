@@ -1,47 +1,37 @@
 import uuid
 from datetime import datetime, timezone
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.dialects.sqlite import CHAR
+from db import Base
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
-
-from .db import Base
-
-
-def utcnow() -> datetime:
+def utcnow():
     return datetime.now(timezone.utc)
 
+def new_uuid():
+    return str(uuid.uuid4())
 
 class User(Base):
     __tablename__ = "users"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    username: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
-    password_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-
+    id = Column(String, primary_key=True, default=new_uuid)
+    username = Column(String(32), unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
 
 class License(Base):
     __tablename__ = "licenses"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
-    duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    hwid: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
+    id = Column(String, primary_key=True, default=new_uuid)
+    key = Column(String, unique=True, nullable=False)
+    user_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    duration_days = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    hwid = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
 
 class Session(Base):
     __tablename__ = "sessions"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    token: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    id = Column(String, primary_key=True, default=new_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+    expires_at = Column(DateTime, nullable=False)
