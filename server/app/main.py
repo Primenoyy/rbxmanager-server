@@ -11,10 +11,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
-from .config import ADMIN_SECRET, SESSION_DAYS
-from .db import Base, engine, get_db
-from .models import License, Session, User, utcnow
-from .schemas import (
+from config import ADMIN_SECRET, SESSION_DAYS
+from db import Base, engine, get_db
+from models import License, Session, User, utcnow
+from schemas import (
     ActivateIn,
     ActivateOut,
     GenerateIn,
@@ -30,7 +30,7 @@ from .schemas import (
     ValidateIn,
     ValidateOut,
 )
-from .security import generate_key, hash_password, new_session_token, verify_password
+from security import generate_key, hash_password, new_session_token, verify_password
 
 
 @asynccontextmanager
@@ -49,8 +49,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ------------------------------------------------------------------ helpers
 
 def as_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt is None:
@@ -109,25 +107,19 @@ def require_admin(x_admin_secret: Optional[str] = Header(default=None)) -> None:
         raise HTTPException(status_code=403, detail="Admin secret invalide")
 
 
-# ------------------------------------------------------------------ health
-
 @app.get("/health")
 def health():
     return {"status": "ok", "time": utcnow().isoformat()}
 
-
-# ------------------------------------------------------------------ auth
 
 @app.post("/auth/register", response_model=RegisterOut)
 def register(body: RegisterIn, db: DbSession = Depends(get_db)):
     username = body.username.strip()
     if len(username) < 3 or len(username) > 32:
         raise HTTPException(status_code=422, detail="Username: 3 à 32 caractères")
-
     exists = db.scalar(select(User).where(User.username == username))
     if exists is not None:
         raise HTTPException(status_code=409, detail="Ce nom d'utilisateur est déjà pris")
-
     user = User(username=username, password_hash=hash_password(body.password))
     db.add(user)
     try:
@@ -135,7 +127,6 @@ def register(body: RegisterIn, db: DbSession = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Ce nom d'utilisateur est déjà pris")
-
     return RegisterOut(user_id=str(user.id), username=user.username)
 
 
@@ -153,12 +144,10 @@ def login(body: LoginIn, db: DbSession = Depends(get_db)):
     user = db.scalar(select(User).where(User.username == body.username.strip()))
     if user is None or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Identifiants invalides")
-
     expires = utcnow() + timedelta(days=SESSION_DAYS)
     sess = Session(user_id=user.id, token=new_session_token(), expires_at=expires)
     db.add(sess)
     db.commit()
-
     return LoginOut(token=sess.token, expires_at=expires)
 
 
@@ -174,8 +163,6 @@ def logout(request: Request, db: DbSession = Depends(get_db)):
     return LogoutOut(success=True)
 
 
-# ------------------------------------------------------------------ license
-
 @app.post("/license/activate", response_model=ActivateOut)
 def activate(body: ActivateIn, user: User = Depends(current_user), db: DbSession = Depends(get_db)):
     lic = db.scalar(select(License).where(License.key == body.key.strip().upper()))
@@ -185,24 +172,18 @@ def activate(body: ActivateIn, user: User = Depends(current_user), db: DbSession
         raise HTTPException(status_code=403, detail="Clé révoquée")
     if license_expired(lic):
         raise HTTPException(status_code=403, detail="Clé expirée")
-
     hwid = body.hwid.strip()
     if not hwid:
         raise HTTPException(status_code=422, detail="HWID manquant")
-
     if lic.hwid is None:
         lic.hwid = hwid
     elif lic.hwid != hwid:
         raise HTTPException(status_code=403, detail="HWID mismatch — licence liée à une autre machine")
-
     if lic.user_id is not None and lic.user_id != user.id:
         raise HTTPException(status_code=409, detail="Clé déjà liée à un autre compte")
-
     lic.user_id = user.id
-
     if lic.duration_days != -1 and lic.expires_at is None:
         lic.expires_at = utcnow() + timedelta(days=lic.duration_days)
-
     db.commit()
     return ActivateOut(valid=True, expires_at=as_utc(lic.expires_at), days_remaining=remaining_days(lic))
 
@@ -220,7 +201,6 @@ def validate(body: ValidateIn, db: DbSession = Depends(get_db)):
         return ValidateOut(valid=False, message="Licence non activée")
     if lic.hwid != body.hwid.strip():
         return ValidateOut(valid=False, message="HWID mismatch")
-
     return ValidateOut(valid=True, days_remaining=remaining_days(lic), message="OK")
 
 
@@ -235,8 +215,6 @@ def my_license(user: User = Depends(current_user), db: DbSession = Depends(get_d
         raise HTTPException(status_code=404, detail="Aucune licence active sur ce compte")
     return MyLicenseOut(key=lic.key, expires_at=as_utc(lic.expires_at), days_remaining=remaining_days(lic))
 
-
-# ------------------------------------------------------------------ admin
 
 @app.post("/admin/generate-keys", response_model=GenerateOut, dependencies=[Depends(require_admin)])
 def admin_generate(body: GenerateIn, db: DbSession = Depends(get_db)):
