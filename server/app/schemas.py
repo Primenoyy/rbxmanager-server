@@ -1,69 +1,55 @@
 from datetime import datetime
 from typing import Optional
-
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel
 
 class RegisterIn(BaseModel):
-    username: str = Field(min_length=3, max_length=32)
-    password: str = Field(min_length=6, max_length=128)
-
-
-class LoginIn(BaseModel):
     username: str
     password: str
-
 
 class RegisterOut(BaseModel):
     user_id: str
     username: str
 
+class LoginIn(BaseModel):
+    username: str
+    password: str
 
 class LoginOut(BaseModel):
     token: str
     expires_at: datetime
 
-
 class LogoutOut(BaseModel):
     success: bool
-
 
 class ActivateIn(BaseModel):
     key: str
     hwid: str
 
-
 class ActivateOut(BaseModel):
     valid: bool
     expires_at: Optional[datetime] = None
-    days_remaining: int = 0
-
+    days_remaining: int
 
 class ValidateIn(BaseModel):
     key: str
     hwid: str
 
-
 class ValidateOut(BaseModel):
     valid: bool
-    days_remaining: int = 0
-    message: str = ""
-
+    days_remaining: Optional[int] = None
+    message: str
 
 class MyLicenseOut(BaseModel):
     key: str
     expires_at: Optional[datetime] = None
-    days_remaining: int = 0
-
+    days_remaining: int
 
 class GenerateIn(BaseModel):
-    count: int = Field(ge=1, le=500)
-    duration_days: int = Field(ge=-1, le=3650)
-
+    count: int
+    duration_days: int
 
 class GenerateOut(BaseModel):
     keys: list[str]
-
 
 class KeyInfo(BaseModel):
     key: str
@@ -71,9 +57,8 @@ class KeyInfo(BaseModel):
     user_id: Optional[str] = None
     hwid: Optional[str] = None
     duration_days: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
-
 
 class RevokeOut(BaseModel):
     revoked: bool
