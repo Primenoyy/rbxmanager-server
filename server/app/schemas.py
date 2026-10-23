@@ -55,6 +55,7 @@ class KeyInfo(BaseModel):
     key: str
     is_active: bool
     user_id: Optional[str] = None
+    username: Optional[str] = None
     hwid: Optional[str] = None
     duration_days: int
     created_at: Optional[datetime] = None

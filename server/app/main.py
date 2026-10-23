@@ -232,18 +232,24 @@ def admin_generate(body: GenerateIn, db: DbSession = Depends(get_db)):
 @app.get("/admin/keys", response_model=list[KeyInfo], dependencies=[Depends(require_admin)])
 def admin_keys(db: DbSession = Depends(get_db)):
     rows = db.scalars(select(License).order_by(License.created_at.desc())).all()
-    return [
-        KeyInfo(
+    result: list[KeyInfo] = []
+    for r in rows:
+        username = None
+        if r.user_id is not None:
+            owner = db.get(User, r.user_id)
+            username = owner.username if owner is not None else None
+
+        result.append(KeyInfo(
             key=r.key,
             is_active=r.is_active,
             user_id=str(r.user_id) if r.user_id else None,
+            username=username,
             hwid=r.hwid,
             duration_days=r.duration_days,
             created_at=as_utc(r.created_at),
             expires_at=as_utc(r.expires_at),
-        )
-        for r in rows
-    ]
+        ))
+    return result
 
 
 @app.delete("/admin/revoke/{key}", response_model=RevokeOut, dependencies=[Depends(require_admin)])
